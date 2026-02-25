@@ -44,6 +44,8 @@ app:
 
   frontend:
     reset-password-url: ${APP_FRONTEND_RESET_PASSWORD_URL:http://localhost:5173/reset-password}
+    verify-email-url: ${APP_FRONTEND_VERIFY_EMAIL_URL:http://localhost:5173/verify-email}
+    oauth-success-url: ${APP_FRONTEND_OAUTH_SUCCESS_URL:http://localhost:5173/oauth/success}
 
   mail:
     from: ${APP_MAIL_FROM:no-reply@main-java-template.local}

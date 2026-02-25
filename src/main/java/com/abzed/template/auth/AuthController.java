@@ -44,12 +44,14 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(HttpServletRequest request) {
         String refresh = readCookie(request, authProperties.getCookie().getRefreshName());
-        String access = authService.refresh(refresh);
+        var tokens = authService.refresh(refresh);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE,
-                        cookieUtil.accessCookie(access, authProperties.getJwt().getAccessMinutes() * 60).toString())
-                .body(ApiResponse.success(new AuthResponse(access, "Bearer")));
+                        cookieUtil.accessCookie(tokens.accessToken(), authProperties.getJwt().getAccessMinutes() * 60).toString())
+                .header(HttpHeaders.SET_COOKIE,
+                        cookieUtil.refreshCookie(tokens.refreshToken(), authProperties.getJwt().getRefreshDays() * 24 * 60 * 60).toString())
+                .body(ApiResponse.success(new AuthResponse(tokens.accessToken(), "Bearer")));
     }
 
     @PostMapping("/logout")
@@ -61,6 +63,12 @@ public class AuthController {
                 .header(HttpHeaders.SET_COOKIE, cookieUtil.clearAccessCookie().toString())
                 .header(HttpHeaders.SET_COOKIE, cookieUtil.clearRefreshCookie().toString())
                 .body(ApiResponse.success("Logged out", null));
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<ApiResponse<Object>> verifyEmail(@RequestParam String token) {
+        authService.verifyEmail(token);
+        return ResponseEntity.ok(ApiResponse.success("Email verified successfully", null));
     }
 
     @PostMapping("/forgot-password")

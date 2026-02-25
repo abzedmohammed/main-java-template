@@ -8,11 +8,12 @@ import com.abzed.template.user.UserRepository;
 import com.abzed.template.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +25,8 @@ public class AuthService {
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final SystemLogService systemLogService;
+    private final LoginAttemptService loginAttemptService;
+    private final EmailVerificationService emailVerificationService;
 
     public User register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
@@ -36,8 +39,11 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(UserRole.USER);
         user.setProvider(AuthProvider.LOCAL);
+        user.setEmailVerified(false);
 
         User saved = userRepository.save(user);
+        emailVerificationService.createAndSendVerificationToken(saved);
+
         systemLogService.log(SystemLogLevel.SECURITY, "AUTH", "User registered",
                 "A new local user account was created", saved.getEmail(), "SUCCESS");
 
@@ -45,13 +51,27 @@ public class AuthService {
     }
 
     public AuthTokens login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.email(), request.password())
-        );
+        if (loginAttemptService.isBlocked(request.email())) {
+            throw new IllegalArgumentException("Account temporarily locked due to too many failed login attempts");
+        }
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.email(), request.password())
+            );
+        } catch (BadCredentialsException ex) {
+            loginAttemptService.onFailure(request.email());
+            throw ex;
+        }
 
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
 
+        if (user.getProvider() == AuthProvider.LOCAL && !user.isEmailVerified()) {
+            throw new IllegalArgumentException("Please verify your email before logging in");
+        }
+
+        loginAttemptService.onSuccess(request.email());
         refreshTokenService.revokeAllForUser(user.getId());
 
         String accessToken = jwtService.generateAccessToken(user);
@@ -64,7 +84,7 @@ public class AuthService {
         return new AuthTokens(accessToken, refreshToken);
     }
 
-    public String refresh(String refreshToken) {
+    public AuthTokens refresh(String refreshToken) {
         if (!jwtService.validateRefreshToken(refreshToken)) {
             throw new IllegalArgumentException("Invalid refresh token");
         }
@@ -72,15 +92,21 @@ public class AuthService {
         RefreshToken token = refreshTokenService.findByToken(refreshToken)
                 .orElseThrow(() -> new IllegalArgumentException("Refresh token not found"));
 
-        if (token.isRevoked() || token.getExpiryDate().isBefore(java.time.Instant.now())) {
+        if (token.isRevoked() || token.getExpiryDate().isBefore(Instant.now())) {
             throw new IllegalArgumentException("Refresh token expired or revoked");
         }
 
-        UUID userId = jwtService.extractUserIdFromRefreshToken(refreshToken);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = token.getUser();
+        refreshTokenService.revoke(token);
 
-        return jwtService.generateAccessToken(user);
+        String newAccess = jwtService.generateAccessToken(user);
+        String newRefresh = jwtService.generateRefreshToken(user.getId());
+        refreshTokenService.create(user, newRefresh, jwtService.getRefreshExpiry(newRefresh));
+
+        systemLogService.log(SystemLogLevel.SECURITY, "AUTH", "Token refreshed",
+                "Access token refreshed and refresh token rotated", user.getEmail(), "SUCCESS");
+
+        return new AuthTokens(newAccess, newRefresh);
     }
 
     public void logout(String refreshToken) {
@@ -108,6 +134,10 @@ public class AuthService {
         systemLogService.log(SystemLogLevel.SECURITY, "AUTH", "Password updated",
                 "User updated account password and existing refresh tokens were revoked",
                 user.getEmail(), "SUCCESS");
+    }
+
+    public void verifyEmail(String token) {
+        emailVerificationService.verifyEmail(token);
     }
 
     public record AuthTokens(String accessToken, String refreshToken) {

@@ -1,6 +1,7 @@
 package com.abzed.template.config;
 
 import com.abzed.template.auth.JwtAuthenticationFilter;
+import com.abzed.template.auth.OAuth2AuthenticationSuccessHandler;
 import com.abzed.template.user.UserDetailsServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -34,6 +35,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsServiceImpl userDetailsService;
     private final AuthProperties authProperties;
+    private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -58,7 +60,7 @@ public class SecurityConfig {
         }
 
         if (authProperties.getSocial().isEnabled()) {
-            http.oauth2Login(Customizer.withDefaults());
+            http.oauth2Login(oauth -> oauth.successHandler(oAuth2AuthenticationSuccessHandler));
         }
 
         return http.build();

@@ -34,4 +34,7 @@ public class User extends BaseEntity {
     private AuthProvider provider = AuthProvider.LOCAL;
 
     private String providerId;
+
+    @Column(nullable = false)
+    private boolean emailVerified = false;
 }
