@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: main-java-template
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/main_java_template}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_STARTTLS_ENABLE:false}
+
+app:
+  auth:
+    mode: ${APP_AUTH_MODE:token} # token | session
+    cookie:
+      access-name: ${APP_ACCESS_COOKIE_NAME:accessToken}
+      refresh-name: ${APP_REFRESH_COOKIE_NAME:refreshToken}
+      same-site: ${APP_COOKIE_SAME_SITE:Lax}
+      path: ${APP_COOKIE_PATH:/}
+      secure: ${APP_COOKIE_SECURE:false}
+      http-only: true
+    jwt:
+      access-secret: ${APP_JWT_ACCESS_SECRET:replace-with-base64-secret}
+      refresh-secret: ${APP_JWT_REFRESH_SECRET:replace-with-base64-secret}
+      access-minutes: ${APP_JWT_ACCESS_MINUTES:15}
+      refresh-days: ${APP_JWT_REFRESH_DAYS:7}
+    social:
+      enabled: ${APP_SOCIAL_AUTH_ENABLED:false}
+
+  frontend:
+    reset-password-url: ${APP_FRONTEND_RESET_PASSWORD_URL:http://localhost:5173/reset-password}
+
+  mail:
+    from: ${APP_MAIL_FROM:no-reply@main-java-template.local}
+
+server:
+  port: ${SERVER_PORT:8080}
