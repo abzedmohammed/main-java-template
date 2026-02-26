@@ -1,48 +1,47 @@
 package com.abzed.template.auth;
 
+import com.abzed.template.auth.ratelimit.LoginRateLimit;
+import com.abzed.template.auth.ratelimit.LoginRateLimitRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@RequiredArgsConstructor
 public class LoginAttemptService {
 
     private static final int MAX_ATTEMPTS = 5;
     private static final long LOCK_MINUTES = 15;
 
-    private final Map<String, Integer> attempts = new ConcurrentHashMap<>();
-    private final Map<String, Instant> lockedUntil = new ConcurrentHashMap<>();
+    private final LoginRateLimitRepository loginRateLimitRepository;
 
     public boolean isBlocked(String email) {
-        Instant until = lockedUntil.get(email.toLowerCase());
-        if (until == null) {
-            return false;
-        }
-
-        if (until.isBefore(Instant.now())) {
-            lockedUntil.remove(email.toLowerCase());
-            attempts.remove(email.toLowerCase());
-            return false;
-        }
-
-        return true;
+        String key = email.toLowerCase();
+        return loginRateLimitRepository.findByEmail(key)
+                .map(entry -> entry.getBlockedUntil() != null && entry.getBlockedUntil().isAfter(Instant.now()))
+                .orElse(false);
     }
 
     public void onSuccess(String email) {
-        attempts.remove(email.toLowerCase());
-        lockedUntil.remove(email.toLowerCase());
+        String key = email.toLowerCase();
+        loginRateLimitRepository.findByEmail(key).ifPresent(loginRateLimitRepository::delete);
     }
 
     public void onFailure(String email) {
         String key = email.toLowerCase();
-        int next = attempts.getOrDefault(key, 0) + 1;
-        attempts.put(key, next);
+        LoginRateLimit entry = loginRateLimitRepository.findByEmail(key).orElseGet(LoginRateLimit::new);
+
+        int next = entry.getAttempts() + 1;
+        entry.setEmail(key);
+        entry.setAttempts(next);
+        entry.setUpdatedAt(Instant.now());
 
         if (next >= MAX_ATTEMPTS) {
-            lockedUntil.put(key, Instant.now().plus(LOCK_MINUTES, ChronoUnit.MINUTES));
+            entry.setBlockedUntil(Instant.now().plus(LOCK_MINUTES, ChronoUnit.MINUTES));
         }
+
+        loginRateLimitRepository.save(entry);
     }
 }

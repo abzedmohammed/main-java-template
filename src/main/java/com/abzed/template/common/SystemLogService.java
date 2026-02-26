@@ -1,6 +1,8 @@
 package com.abzed.template.common;
 
+import com.abzed.template.messaging.AuthEventPublisher;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -8,6 +10,7 @@ import org.springframework.stereotype.Service;
 public class SystemLogService {
 
     private final SystemLogRepository systemLogRepository;
+    private final ObjectProvider<AuthEventPublisher> authEventPublisher;
 
     public void log(SystemLogLevel level, String category, String title, String details, String actor, String status) {
         SystemLog log = new SystemLog();
@@ -18,6 +21,13 @@ public class SystemLogService {
         log.setActor(actor);
         log.setStatus(status);
         systemLogRepository.save(log);
+
+        if ("AUTH".equalsIgnoreCase(category)) {
+            AuthEventPublisher publisher = authEventPublisher.getIfAvailable();
+            if (publisher != null) {
+                publisher.publish(title, actor, status, details);
+            }
+        }
     }
 
     public String humanMessage(SystemLog log) {

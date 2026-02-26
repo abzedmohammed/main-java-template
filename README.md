@@ -15,7 +15,9 @@ Authentication-first Spring Boot template extracted from `tetish_inn_backend` an
 - Email verification flow
 - Email notifications for verification/reset flows
 - User + token persistence (refresh + reset + verification tokens)
-- System log entity with human-readable log messages
+- System log entity with human-readable log messages + filterable endpoint
+- RabbitMQ integration for auth events
+- OpenAPI + Swagger UI docs
 - Global API response and exception handling
 
 ## Dependency strategy
@@ -57,7 +59,11 @@ By default, OAuth success redirects to `APP_FRONTEND_OAUTH_SUCCESS_URL`.
 - `POST /api/auth/reset-password`
 - `POST /api/auth/update-password`
 - `GET /api/auth/me`
-- `GET /api/system-logs`
+- `GET /api/system-logs?level=SECURITY&category=AUTH&page=0&size=50`
+
+Docs:
+- `GET /api/docs`
+- `GET /swagger-ui`
 
 ## PostgreSQL setup
 
@@ -90,6 +96,14 @@ Use Mailpit/Mailhog with defaults from `.env.example`:
 
 - SMTP host: `localhost`
 - SMTP port: `1025`
+
+## RabbitMQ integration (optional)
+
+1. Run RabbitMQ locally.
+2. Set `APP_RABBITMQ_ENABLED=true`.
+3. Configure `SPRING_RABBITMQ_*` env values.
+
+Auth/security logs in category `AUTH` are published to queue `main-template.auth.events`.
 
 ## Note on Generator
 
