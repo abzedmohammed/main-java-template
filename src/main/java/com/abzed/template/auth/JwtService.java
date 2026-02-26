@@ -27,6 +27,7 @@ public class JwtService {
     public String generateAccessToken(User user) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(user.getId().toString())
                 .claims(Map.of(
                         "email", user.getEmail(),
@@ -42,6 +43,7 @@ public class JwtService {
     public String generateRefreshToken(UUID userId) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(userId.toString())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(authProperties.getJwt().getRefreshDays(), ChronoUnit.DAYS)))
