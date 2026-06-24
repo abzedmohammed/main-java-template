@@ -7,4 +7,4 @@ read commit_message
 # Add all changes, commit, and push
 git add .
 git commit -m "$commit_message"
-git push origin master
+git push origin main
