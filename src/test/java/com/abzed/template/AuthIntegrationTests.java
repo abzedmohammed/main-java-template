@@ -5,22 +5,23 @@ import com.abzed.template.auth.EmailVerificationTokenRepository;
 import com.abzed.template.auth.PasswordResetTokenRepository;
 import com.abzed.template.auth.RefreshTokenRepository;
 import com.abzed.template.user.UserRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,7 +49,7 @@ class AuthIntegrationTests {
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
 
-    @MockBean
+    @MockitoBean
     private EmailService emailService;
 
     @BeforeEach
@@ -147,6 +148,73 @@ class AuthIntegrationTests {
                         .content(objectMapper.writeValueAsString(new Payload.Login(email, "Pass999!"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    void me_requiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    void me_returnsProfileWithoutPasswordHash() throws Exception {
+        String email = "me.flow@example.com";
+        MvcResult loginResult = registerVerifyAndLogin(email);
+        String accessCookie = extractCookie(loginResult, "accessToken");
+
+        mockMvc.perform(get("/api/auth/me")
+                        .cookie(new Cookie("accessToken", cookieValue(accessCookie))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.result.email").value(email))
+                .andExpect(jsonPath("$.data.result.passwordHash").doesNotExist());
+    }
+
+    @Test
+    void refreshTokenRotation_oldRefreshTokenIsRejected() throws Exception {
+        MvcResult loginResult = registerVerifyAndLogin("rotation.flow@example.com");
+        String oldRefresh = cookieValue(extractCookie(loginResult, "refreshToken"));
+
+        // First refresh succeeds and rotates the token.
+        mockMvc.perform(post("/api/auth/refresh").cookie(new Cookie("refreshToken", oldRefresh)))
+                .andExpect(status().isOk());
+
+        // Reusing the now-rotated refresh token must be rejected.
+        mockMvc.perform(post("/api/auth/refresh").cookie(new Cookie("refreshToken", oldRefresh)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void systemLogs_areForbiddenForNonAdminUsers() throws Exception {
+        MvcResult loginResult = registerVerifyAndLogin("normal.user@example.com");
+        String accessCookie = extractCookie(loginResult, "accessToken");
+
+        mockMvc.perform(get("/api/system-logs")
+                        .cookie(new Cookie("accessToken", cookieValue(accessCookie))))
+                .andExpect(status().isForbidden());
+    }
+
+    private MvcResult registerVerifyAndLogin(String email) throws Exception {
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new Payload.Register("Test User", email, "Pass123!"))))
+                .andExpect(status().isOk());
+
+        String verifyToken = emailVerificationTokenRepository
+                .findTopByUserEmailOrderByExpiryDateDesc(email)
+                .orElseThrow()
+                .getToken();
+
+        mockMvc.perform(post("/api/auth/verify-email").param("token", verifyToken))
+                .andExpect(status().isOk());
+
+        return mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new Payload.Login(email, "Pass123!"))))
+                .andExpect(status().isOk())
+                .andReturn();
     }
 
     private String extractCookie(MvcResult result, String cookieName) {

@@ -2,9 +2,12 @@ package com.abzed.template.auth;
 
 import com.abzed.template.common.SystemLogLevel;
 import com.abzed.template.common.SystemLogService;
+import com.abzed.template.common.exception.BadRequestException;
 import com.abzed.template.user.User;
 import com.abzed.template.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PasswordResetService {
 
+    private static final Logger log = LoggerFactory.getLogger(PasswordResetService.class);
+
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -29,8 +34,13 @@ public class PasswordResetService {
 
     @Transactional
     public void createAndSendResetToken(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User with this email does not exist"));
+        // Do not reveal whether the email exists (prevents account enumeration);
+        // the controller always responds with a generic success message.
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            log.info("Password reset requested for unknown email; ignoring");
+            return;
+        }
 
         passwordResetTokenRepository.deleteByUserId(user.getId());
 
@@ -55,10 +65,10 @@ public class PasswordResetService {
     @Transactional
     public void resetPassword(String rawToken, String newPassword) {
         PasswordResetToken token = passwordResetTokenRepository.findByToken(rawToken)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid reset token"));
+                .orElseThrow(() -> new BadRequestException("Invalid reset token"));
 
         if (token.isUsed() || token.getExpiryDate().isBefore(Instant.now())) {
-            throw new IllegalArgumentException("Reset token expired or already used");
+            throw new BadRequestException("Reset token expired or already used");
         }
 
         User user = token.getUser();

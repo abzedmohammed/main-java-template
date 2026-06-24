@@ -1,9 +1,12 @@
 package com.abzed.template.user;
 
 import com.abzed.template.audit.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.id.uuid.UuidVersion7Strategy;
 
 import java.util.UUID;
 
@@ -14,7 +17,7 @@ import java.util.UUID;
 public class User extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @UuidGenerator(algorithm = UuidVersion7Strategy.class)
     private UUID id;
 
     @Column(nullable = false)
@@ -23,6 +26,7 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @JsonIgnore
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)

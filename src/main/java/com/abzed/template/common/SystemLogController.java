@@ -6,6 +6,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,6 +26,7 @@ public class SystemLogController {
     private final SystemLogService systemLogService;
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Object>> getLogs(
             @RequestParam(required = false) SystemLogLevel level,
             @RequestParam(required = false) String category,
@@ -57,12 +59,6 @@ public class SystemLogController {
                 })
                 .toList();
 
-        return ResponseEntity.ok(ApiResponse.success("System logs", Map.of(
-                "content", logs,
-                "page", result.getNumber(),
-                "size", result.getSize(),
-                "totalElements", result.getTotalElements(),
-                "totalPages", result.getTotalPages()
-        )));
+        return ResponseEntity.ok(ApiResponse.page("System logs", logs, result.getTotalElements()));
     }
 }

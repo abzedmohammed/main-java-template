@@ -4,6 +4,8 @@ import com.abzed.template.audit.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.id.uuid.UuidVersion7Strategy;
 
 import java.util.UUID;
 
@@ -14,7 +16,7 @@ import java.util.UUID;
 public class SystemLog extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @UuidGenerator(algorithm = UuidVersion7Strategy.class)
     private UUID id;
 
     @Enumerated(EnumType.STRING)

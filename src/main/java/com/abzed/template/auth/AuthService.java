@@ -2,16 +2,22 @@ package com.abzed.template.auth;
 
 import com.abzed.template.common.SystemLogLevel;
 import com.abzed.template.common.SystemLogService;
+import com.abzed.template.common.exception.BadRequestException;
+import com.abzed.template.common.exception.ConflictException;
+import com.abzed.template.common.exception.ForbiddenException;
+import com.abzed.template.common.exception.TooManyRequestsException;
+import com.abzed.template.common.exception.UnauthorizedException;
 import com.abzed.template.user.AuthProvider;
 import com.abzed.template.user.User;
 import com.abzed.template.user.UserRepository;
 import com.abzed.template.user.UserRole;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 
@@ -30,7 +36,7 @@ public class AuthService {
 
     public User register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("Email already in use");
+            throw new ConflictException("Email already in use");
         }
 
         User user = new User();
@@ -50,25 +56,26 @@ public class AuthService {
         return saved;
     }
 
+    @Transactional
     public AuthTokens login(LoginRequest request) {
         if (loginAttemptService.isBlocked(request.email())) {
-            throw new IllegalArgumentException("Account temporarily locked due to too many failed login attempts");
+            throw new TooManyRequestsException("Account temporarily locked due to too many failed login attempts");
         }
 
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.email(), request.password())
             );
-        } catch (BadCredentialsException ex) {
+        } catch (AuthenticationException ex) {
             loginAttemptService.onFailure(request.email());
-            throw ex;
+            throw new UnauthorizedException("Invalid email or password");
         }
 
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+                .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
 
         if (user.getProvider() == AuthProvider.LOCAL && !user.isEmailVerified()) {
-            throw new IllegalArgumentException("Please verify your email before logging in");
+            throw new ForbiddenException("Please verify your email before logging in");
         }
 
         loginAttemptService.onSuccess(request.email());
@@ -84,16 +91,17 @@ public class AuthService {
         return new AuthTokens(accessToken, refreshToken);
     }
 
+    @Transactional
     public AuthTokens refresh(String refreshToken) {
         if (!jwtService.validateRefreshToken(refreshToken)) {
-            throw new IllegalArgumentException("Invalid refresh token");
+            throw new UnauthorizedException("Invalid refresh token");
         }
 
         RefreshToken token = refreshTokenService.findByToken(refreshToken)
-                .orElseThrow(() -> new IllegalArgumentException("Refresh token not found"));
+                .orElseThrow(() -> new UnauthorizedException("Refresh token not found"));
 
         if (token.isRevoked() || token.getExpiryDate().isBefore(Instant.now())) {
-            throw new IllegalArgumentException("Refresh token expired or revoked");
+            throw new UnauthorizedException("Refresh token expired or revoked");
         }
 
         User user = token.getUser();
@@ -109,6 +117,7 @@ public class AuthService {
         return new AuthTokens(newAccess, newRefresh);
     }
 
+    @Transactional
     public void logout(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
             return;
@@ -122,9 +131,10 @@ public class AuthService {
         });
     }
 
+    @Transactional
     public void updatePassword(User user, String currentPassword, String newPassword) {
         if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-            throw new IllegalArgumentException("Current password is incorrect");
+            throw new BadRequestException("Current password is incorrect");
         }
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));

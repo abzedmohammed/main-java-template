@@ -1,0 +1,27 @@
+stages:
+  - build
+  - test
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - .m2/repository
+
+build:
+  stage: build
+  image: eclipse-temurin:21-jdk
+  script:
+    - ./mvnw -B -q clean compile
+
+test:
+  stage: test
+  image: eclipse-temurin:21-jdk
+  script:
+    - ./mvnw -B verify
+  artifacts:
+    when: always
+    reports:
+      junit: target/surefire-reports/TEST-*.xml

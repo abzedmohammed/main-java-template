@@ -1,6 +1,7 @@
 package com.abzed.template.auth;
 
 import com.abzed.template.common.ApiResponse;
+import com.abzed.template.common.exception.UnauthorizedException;
 import com.abzed.template.config.AuthProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import com.abzed.template.user.UserPrincipal;
+import com.abzed.template.user.UserResponse;
 
 import java.util.Arrays;
 
@@ -88,31 +90,24 @@ public class AuthController {
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody UpdatePasswordRequest request
     ) {
-        if (principal == null) {
-            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
-        }
-
         authService.updatePassword(principal.getUser(), request.currentPassword(), request.newPassword());
         return ResponseEntity.ok(ApiResponse.success("Password updated successfully", null));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<Object>> me(@AuthenticationPrincipal UserPrincipal principal) {
-        if (principal == null) {
-            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
-        }
-        return ResponseEntity.ok(ApiResponse.success(principal.getUser()));
+    public ResponseEntity<ApiResponse<UserResponse>> me(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(principal.getUser())));
     }
 
     private String readCookie(HttpServletRequest request, String key) {
         if (request.getCookies() == null) {
-            throw new IllegalArgumentException("Missing cookie: " + key);
+            throw new UnauthorizedException("Missing authentication cookie");
         }
 
         return Arrays.stream(request.getCookies())
                 .filter(cookie -> key.equals(cookie.getName()))
                 .findFirst()
                 .map(jakarta.servlet.http.Cookie::getValue)
-                .orElseThrow(() -> new IllegalArgumentException("Missing cookie: " + key));
+                .orElseThrow(() -> new UnauthorizedException("Missing authentication cookie"));
     }
 }

@@ -9,7 +9,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.auth")
 public class AuthProperties {
 
-    private String mode = "token"; // token | session
     private Cookie cookie = new Cookie();
     private Jwt jwt = new Jwt();
     private Social social = new Social();

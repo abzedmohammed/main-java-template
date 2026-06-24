@@ -1,0 +1,55 @@
+# Local development stack.
+#   docker compose up -d postgres mailpit   # just the dependencies (run the app from your IDE / mvnw)
+#   docker compose up --build               # everything, including the app
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: main_java_template
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672" # Management UI
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/main_java_template
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      SPRING_RABBITMQ_HOST: rabbitmq
+      # Dev-only base64 secrets — override in any real environment.
+      APP_JWT_ACCESS_SECRET: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      APP_JWT_REFRESH_SECRET: ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA=
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173
+    ports:
+      - "8080:8080"
+    profiles:
+      - full
+
+volumes:
+  pgdata:

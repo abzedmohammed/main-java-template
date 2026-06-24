@@ -2,6 +2,7 @@ package com.abzed.template.auth;
 
 import com.abzed.template.common.SystemLogLevel;
 import com.abzed.template.common.SystemLogService;
+import com.abzed.template.common.exception.BadRequestException;
 import com.abzed.template.user.User;
 import com.abzed.template.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,10 +51,10 @@ public class EmailVerificationService {
     @Transactional
     public void verifyEmail(String rawToken) {
         EmailVerificationToken token = emailVerificationTokenRepository.findByToken(rawToken)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid verification token"));
+                .orElseThrow(() -> new BadRequestException("Invalid verification token"));
 
         if (token.isUsed() || token.getExpiryDate().isBefore(Instant.now())) {
-            throw new IllegalArgumentException("Verification token expired or already used");
+            throw new BadRequestException("Verification token expired or already used");
         }
 
         User user = token.getUser();
