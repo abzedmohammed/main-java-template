@@ -15,4 +15,5 @@ app:
   auth:
     jwt:
       access-secret: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-      refresh-secret: ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA=
+    otp:
+      secret: test-only-otp-hmac-secret-0123456789abcdef

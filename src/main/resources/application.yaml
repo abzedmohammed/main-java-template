@@ -31,24 +31,27 @@ spring:
 
 app:
   auth:
-    cookie:
-      access-name: ${APP_ACCESS_COOKIE_NAME:accessToken}
-      refresh-name: ${APP_REFRESH_COOKIE_NAME:refreshToken}
-      same-site: ${APP_COOKIE_SAME_SITE:Lax}
-      path: ${APP_COOKIE_PATH:/}
-      secure: ${APP_COOKIE_SECURE:false}
-      http-only: true
     jwt:
       access-secret: ${APP_JWT_ACCESS_SECRET:replace-with-base64-secret}
-      refresh-secret: ${APP_JWT_REFRESH_SECRET:replace-with-base64-secret}
       access-minutes: ${APP_JWT_ACCESS_MINUTES:15}
-      refresh-days: ${APP_JWT_REFRESH_DAYS:7}
+    otp:
+      # Also returned to the client as `otpTimer` (minutes) on sign_up / sign_in / reset_password.
+      ttl-minutes: ${APP_OTP_TTL_MINUTES:5}
+      max-attempts: ${APP_OTP_MAX_ATTEMPTS:5}
+      # Server-side HMAC key for hashing OTPs (>= 32 chars, never committed). Required at startup.
+      secret: ${APP_OTP_SECRET:}
+    login:
+      max-attempts: ${APP_LOGIN_MAX_ATTEMPTS:5}
+      lock-minutes: ${APP_LOGIN_LOCK_MINUTES:15}
     social:
       enabled: ${APP_SOCIAL_AUTH_ENABLED:false}
 
+  # Used in email templates ({{appName}}, {{supportEmail}}, CTA link).
+  name: ${APP_NAME:Main Java Template}
+  support-email: ${APP_SUPPORT_EMAIL:support@example.com}
+
   frontend:
-    reset-password-url: ${APP_FRONTEND_RESET_PASSWORD_URL:http://localhost:5173/reset-password}
-    verify-email-url: ${APP_FRONTEND_VERIFY_EMAIL_URL:http://localhost:5173/verify-email}
+    login-url: ${APP_FRONTEND_LOGIN_URL:http://localhost:5173/login}
     oauth-success-url: ${APP_FRONTEND_OAUTH_SUCCESS_URL:http://localhost:5173/oauth/success}
 
   mail:

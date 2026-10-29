@@ -6,7 +6,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, UUID> {
-    Optional<PasswordResetToken> findByToken(String token);
-    Optional<PasswordResetToken> findTopByUserEmailOrderByExpiryDateDesc(String email);
-    void deleteByUserId(UUID userId);
+    Optional<PasswordResetToken> findByPrtToken(String prtToken);
+    Optional<PasswordResetToken> findTopByPrtUser_UsrEmailOrderByPrtExpiryDateDesc(String usrEmail);
+    // Reset authorization created after a verified reset OTP; consumed by update_password.
+    Optional<PasswordResetToken> findTopByPrtUser_UsrIdAndPrtUsedFalseOrderByPrtExpiryDateDesc(UUID usrId);
+    void deleteByPrtUser_UsrId(UUID usrId);
 }

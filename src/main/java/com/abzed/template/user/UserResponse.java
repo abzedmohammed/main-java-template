@@ -8,22 +8,22 @@ import java.util.UUID;
  * so persistence-only fields (e.g. the password hash) are never serialized.
  */
 public record UserResponse(
-        UUID id,
-        String fullName,
-        String email,
-        String role,
-        String provider,
-        boolean emailVerified,
+        UUID usrId,
+        String usrFullName,
+        String usrEmail,
+        String usrRole,
+        String usrProvider,
+        boolean usrEmailVerified,
         Instant createdAt
 ) {
     public static UserResponse from(User user) {
         return new UserResponse(
-                user.getId(),
-                user.getFullName(),
-                user.getEmail(),
-                user.getRole().name(),
-                user.getProvider().name(),
-                user.isEmailVerified(),
+                user.getUsrId(),
+                user.getUsrFullName(),
+                user.getUsrEmail(),
+                user.getUsrRole().name(),
+                user.getUsrProvider().name(),
+                user.isUsrEmailVerified(),
                 user.getCreatedAt()
         );
     }

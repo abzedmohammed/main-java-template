@@ -7,13 +7,13 @@ import java.time.Instant;
 public class SystemLogSpecifications {
 
     public static Specification<SystemLog> hasLevel(SystemLogLevel level) {
-        return (root, query, cb) -> level == null ? cb.conjunction() : cb.equal(root.get("level"), level);
+        return (root, query, cb) -> level == null ? cb.conjunction() : cb.equal(root.get("slgLevel"), level);
     }
 
     public static Specification<SystemLog> hasCategory(String category) {
         return (root, query, cb) -> category == null || category.isBlank()
                 ? cb.conjunction()
-                : cb.equal(cb.lower(root.get("category")), category.toLowerCase());
+                : cb.equal(cb.lower(root.get("slgCategory")), category.toLowerCase());
     }
 
     public static Specification<SystemLog> fromDate(Instant from) {

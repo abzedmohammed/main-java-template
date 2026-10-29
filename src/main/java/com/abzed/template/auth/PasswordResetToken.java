@@ -18,18 +18,18 @@ public class PasswordResetToken {
 
     @Id
     @UuidGenerator(algorithm = UuidVersion7Strategy.class)
-    private UUID id;
+    private UUID prtId;
 
     @Column(nullable = false, unique = true, length = 150)
-    private String token;
+    private String prtToken;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "prt_user_id", nullable = false)
+    private User prtUser;
 
     @Column(nullable = false)
-    private Instant expiryDate;
+    private Instant prtExpiryDate;
 
     @Column(nullable = false)
-    private boolean used = false;
+    private boolean prtUsed = false;
 }

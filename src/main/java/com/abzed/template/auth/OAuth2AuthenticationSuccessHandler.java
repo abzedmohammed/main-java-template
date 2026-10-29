@@ -6,6 +6,7 @@ import com.abzed.template.user.AuthProvider;
 import com.abzed.template.user.User;
 import com.abzed.template.user.UserRepository;
 import com.abzed.template.user.UserRole;
+import com.abzed.template.user.UserStatus;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -15,17 +16,20 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 
+/**
+ * Social login success: upsert the user, mint an access token, and redirect to the
+ * frontend success URL with the token as a query param (token-in-body model — no cookies).
+ */
 @Component
 @RequiredArgsConstructor
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserRepository userRepository;
     private final JwtService jwtService;
-    private final RefreshTokenService refreshTokenService;
-    private final CookieUtil cookieUtil;
     private final SystemLogService systemLogService;
 
     @Value("${app.frontend.oauth-success-url:http://localhost:5173/oauth/success}")
@@ -44,29 +48,27 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
             return;
         }
 
-        User user = userRepository.findByEmail(email).orElseGet(() -> {
+        User user = userRepository.findByUsrEmail(email).orElseGet(() -> {
             User u = new User();
-            u.setEmail(email);
-            u.setFullName(name == null ? "OAuth User" : name);
-            u.setProvider(AuthProvider.GOOGLE);
-            u.setProviderId(providerId);
-            u.setRole(UserRole.USER);
-            u.setEmailVerified(true);
+            u.setUsrEmail(email);
+            u.setUsrFullName(name == null ? "OAuth User" : name);
+            u.setUsrProvider(AuthProvider.GOOGLE);
+            u.setUsrProviderId(providerId);
+            u.setUsrRole(UserRole.USER);
+            u.setUsrEmailVerified(true);
+            u.setUsrStatus(UserStatus.ACTIVE);
             return userRepository.save(u);
         });
 
-        refreshTokenService.revokeAllForUser(user.getId());
-
         String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user.getId());
-        refreshTokenService.create(user, refreshToken, jwtService.getRefreshExpiry(refreshToken));
-
-        response.addHeader("Set-Cookie", cookieUtil.accessCookie(accessToken, 15 * 60).toString());
-        response.addHeader("Set-Cookie", cookieUtil.refreshCookie(refreshToken, 7 * 24 * 60 * 60).toString());
 
         systemLogService.log(SystemLogLevel.SECURITY, "AUTH", "OAuth login",
-                "User authenticated via social provider", user.getEmail(), "SUCCESS");
+                "User authenticated via social provider", user.getUsrEmail(), "SUCCESS");
 
-        response.sendRedirect(oauthSuccessUrl);
+        String redirect = UriComponentsBuilder.fromUriString(oauthSuccessUrl)
+                .queryParam("token", accessToken)
+                .build()
+                .toUriString();
+        response.sendRedirect(redirect);
     }
 }

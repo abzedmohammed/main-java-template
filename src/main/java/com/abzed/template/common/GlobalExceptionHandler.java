@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import jakarta.validation.ConstraintViolation;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,9 +30,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Object>> handleValidation(MethodArgumentNotValidException ex) {
         String message = ex.getBindingResult().getFieldErrors().stream()
                 .findFirst()
-                .map(err -> err.getField() + " " + err.getDefaultMessage())
+                .map(GlobalExceptionHandler::validationMessage)
                 .orElse("Validation failed");
         return ResponseEntity.badRequest().body(ApiResponse.error(message, 400));
+    }
+
+    /**
+     * Messages written on the constraint ({@code @NotBlank(message = "...")}) are complete sentences and are
+     * returned as-is. Built-in defaults ("must not be blank") need the field name to make sense, so they are prefixed.
+     */
+    private static String validationMessage(FieldError err) {
+        boolean builtIn = err.contains(ConstraintViolation.class)
+                && err.unwrap(ConstraintViolation.class).getMessageTemplate().startsWith("{");
+        boolean custom = err.contains(ConstraintViolation.class) && !builtIn;
+        return custom ? err.getDefaultMessage() : err.getField() + " " + err.getDefaultMessage();
     }
 
     @ExceptionHandler(AuthenticationException.class)

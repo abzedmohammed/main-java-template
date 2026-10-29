@@ -3,7 +3,7 @@
 #   docker compose up --build               # everything, including the app
 services:
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_DB: main_java_template
       POSTGRES_USER: postgres
@@ -11,7 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql # Postgres 18+ keeps versioned data under this root
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -25,7 +25,7 @@ services:
       - "8025:8025" # Web UI
 
   rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:4-management
     ports:
       - "5672:5672"
       - "15672:15672" # Management UI
@@ -44,7 +44,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       # Dev-only base64 secrets — override in any real environment.
       APP_JWT_ACCESS_SECRET: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-      APP_JWT_REFRESH_SECRET: ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA=
+      APP_OTP_SECRET: dev-only-otp-hmac-secret-0123456789abcdef
       APP_CORS_ALLOWED_ORIGINS: http://localhost:5173
     ports:
       - "8080:8080"

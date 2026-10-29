@@ -17,16 +17,16 @@ public class LoginRateLimit {
 
     @Id
     @UuidGenerator(algorithm = UuidVersion7Strategy.class)
-    private UUID id;
+    private UUID lrlId;
 
     @Column(nullable = false, unique = true)
-    private String email;
+    private String lrlEmail;
 
     @Column(nullable = false)
-    private int attempts;
+    private int lrlAttempts;
 
-    private Instant blockedUntil;
+    private Instant lrlBlockedUntil;
 
     @Column(nullable = false)
-    private Instant updatedAt;
+    private Instant lrlUpdatedAt;
 }

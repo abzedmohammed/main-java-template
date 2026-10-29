@@ -18,27 +18,33 @@ public class User extends BaseEntity {
 
     @Id
     @UuidGenerator(algorithm = UuidVersion7Strategy.class)
-    private UUID id;
+    private UUID usrId;
 
     @Column(nullable = false)
-    private String fullName;
+    private String usrFullName;
 
     @Column(nullable = false, unique = true)
-    private String email;
+    private String usrEmail;
+
+    private String usrMobileNumber;
 
     @JsonIgnore
-    private String passwordHash;
+    private String usrPasswordHash;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UserRole role = UserRole.USER;
+    private UserRole usrRole = UserRole.USER;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private AuthProvider provider = AuthProvider.LOCAL;
+    private AuthProvider usrProvider = AuthProvider.LOCAL;
 
-    private String providerId;
+    private String usrProviderId;
 
     @Column(nullable = false)
-    private boolean emailVerified = false;
+    private boolean usrEmailVerified = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserStatus usrStatus = UserStatus.DRAFT;
 }

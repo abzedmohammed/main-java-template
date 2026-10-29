@@ -14,12 +14,12 @@ public class SystemLogService {
 
     public void log(SystemLogLevel level, String category, String title, String details, String actor, String status) {
         SystemLog log = new SystemLog();
-        log.setLevel(level);
-        log.setCategory(category);
-        log.setTitle(title);
-        log.setDetails(details);
-        log.setActor(actor);
-        log.setStatus(status);
+        log.setSlgLevel(level);
+        log.setSlgCategory(category);
+        log.setSlgTitle(title);
+        log.setSlgDetails(details);
+        log.setSlgActor(actor);
+        log.setSlgStatus(status);
         systemLogRepository.save(log);
 
         if ("AUTH".equalsIgnoreCase(category)) {
@@ -31,7 +31,7 @@ public class SystemLogService {
     }
 
     public String humanMessage(SystemLog log) {
-        String actor = log.getActor() == null || log.getActor().isBlank() ? "System" : log.getActor();
-        return "[" + log.getLevel() + "] " + actor + " - " + log.getTitle() + " (" + log.getStatus() + ")";
+        String actor = log.getSlgActor() == null || log.getSlgActor().isBlank() ? "System" : log.getSlgActor();
+        return "[" + log.getSlgLevel() + "] " + actor + " - " + log.getSlgTitle() + " (" + log.getSlgStatus() + ")";
     }
 }

@@ -46,14 +46,14 @@ public class SystemLogController {
         List<Map<String, Object>> logs = result.getContent().stream()
                 .map(log -> {
                     Map<String, Object> item = new HashMap<>();
-                    item.put("id", log.getId());
-                    item.put("when", log.getCreatedAt());
-                    item.put("level", log.getLevel());
-                    item.put("category", log.getCategory());
-                    item.put("title", log.getTitle());
-                    item.put("details", log.getDetails());
-                    item.put("actor", log.getActor() == null ? "System" : log.getActor());
-                    item.put("status", log.getStatus());
+                    item.put("slgId", log.getSlgId());
+                    item.put("createdAt", log.getCreatedAt());
+                    item.put("slgLevel", log.getSlgLevel());
+                    item.put("slgCategory", log.getSlgCategory());
+                    item.put("slgTitle", log.getSlgTitle());
+                    item.put("slgDetails", log.getSlgDetails());
+                    item.put("slgActor", log.getSlgActor() == null ? "System" : log.getSlgActor());
+                    item.put("slgStatus", log.getSlgStatus());
                     item.put("humanMessage", systemLogService.humanMessage(log));
                     return item;
                 })

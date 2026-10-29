@@ -15,6 +15,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 
+/** Stateless access tokens, returned in the body and sent back as {@code Authorization: Bearer}. */
 @Service
 public class JwtService {
 
@@ -28,11 +29,11 @@ public class JwtService {
         Instant now = Instant.now();
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
-                .subject(user.getId().toString())
+                .subject(user.getUsrId().toString())
                 .claims(Map.of(
-                        "email", user.getEmail(),
-                        "role", user.getRole().name(),
-                        "name", user.getFullName()
+                        "email", user.getUsrEmail(),
+                        "role", user.getUsrRole().name(),
+                        "name", user.getUsrFullName()
                 ))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(authProperties.getJwt().getAccessMinutes(), ChronoUnit.MINUTES)))
@@ -40,42 +41,18 @@ public class JwtService {
                 .compact();
     }
 
-    public String generateRefreshToken(UUID userId) {
-        Instant now = Instant.now();
-        return Jwts.builder()
-                .id(UUID.randomUUID().toString())
-                .subject(userId.toString())
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(authProperties.getJwt().getRefreshDays(), ChronoUnit.DAYS)))
-                .signWith(refreshKey())
-                .compact();
-    }
-
     public UUID extractUserIdFromAccessToken(String token) {
-        return UUID.fromString(parse(token, accessKey()).getSubject());
-    }
-
-    public UUID extractUserIdFromRefreshToken(String token) {
-        return UUID.fromString(parse(token, refreshKey()).getSubject());
-    }
-
-    public Instant getRefreshExpiry(String token) {
-        return parse(token, refreshKey()).getExpiration().toInstant();
+        return UUID.fromString(parse(token).getSubject());
     }
 
     public boolean validateAccessToken(String token) {
-        parse(token, accessKey());
+        parse(token);
         return true;
     }
 
-    public boolean validateRefreshToken(String token) {
-        parse(token, refreshKey());
-        return true;
-    }
-
-    private Claims parse(String token, SecretKey key) {
+    private Claims parse(String token) {
         return Jwts.parser()
-                .verifyWith(key)
+                .verifyWith(accessKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
@@ -83,9 +60,5 @@ public class JwtService {
 
     private SecretKey accessKey() {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(authProperties.getJwt().getAccessSecret()));
-    }
-
-    private SecretKey refreshKey() {
-        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(authProperties.getJwt().getRefreshSecret()));
     }
 }

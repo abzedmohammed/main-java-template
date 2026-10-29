@@ -12,13 +12,13 @@ cache:
 
 build:
   stage: build
-  image: eclipse-temurin:21-jdk
+  image: eclipse-temurin:25-jdk
   script:
     - ./mvnw -B -q clean compile
 
 test:
   stage: test
-  image: eclipse-temurin:21-jdk
+  image: eclipse-temurin:25-jdk
   script:
     - ./mvnw -B verify
   artifacts:

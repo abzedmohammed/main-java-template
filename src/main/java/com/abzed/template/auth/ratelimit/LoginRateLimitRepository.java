@@ -6,5 +6,5 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface LoginRateLimitRepository extends JpaRepository<LoginRateLimit, UUID> {
-    Optional<LoginRateLimit> findByEmail(String email);
+    Optional<LoginRateLimit> findByLrlEmail(String lrlEmail);
 }

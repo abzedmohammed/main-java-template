@@ -51,9 +51,9 @@ public class SecurityConfig {
                         .requestMatchers("/", "/error").permitAll()
                         .requestMatchers(PUBLIC_DOCS).permitAll()
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-                        // Authenticated auth endpoints must be matched before the public wildcard.
-                        .requestMatchers("/api/auth/me", "/api/auth/update-password").authenticated()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // Session refresh needs a valid token; match it before the public auth wildcard.
+                        .requestMatchers("/auth/refresh-session").authenticated()
+                        .requestMatchers("/auth/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(ex -> ex

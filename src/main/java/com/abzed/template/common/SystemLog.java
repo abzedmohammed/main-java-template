@@ -17,24 +17,24 @@ public class SystemLog extends BaseEntity {
 
     @Id
     @UuidGenerator(algorithm = UuidVersion7Strategy.class)
-    private UUID id;
+    private UUID slgId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private SystemLogLevel level;
+    private SystemLogLevel slgLevel;
 
     @Column(nullable = false)
-    private String category;
+    private String slgCategory;
 
     @Column(nullable = false, length = 300)
-    private String title;
+    private String slgTitle;
 
     @Column(nullable = false, length = 1200)
-    private String details;
+    private String slgDetails;
 
     @Column(length = 150)
-    private String actor;
+    private String slgActor;
 
     @Column(length = 50)
-    private String status;
+    private String slgStatus;
 }

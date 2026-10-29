@@ -3,23 +3,30 @@
 Scaffold a new project from this template — a clean, renamed local copy.
 
 Usage:
-  python scaffold.py <target-dir> [options]
+  python scaffold.py "Project X"            # everything else is derived from the name
+  python scaffold.py project-x
+  python scaffold.py --name "Project X"
 
-Examples:
-  python scaffold.py ../acme-portal --package com.acme.portal
-  python scaffold.py ../billing-service --package com.acme.billing --name "Billing Service"
-  python scaffold.py my-app --package com.example.myapp --no-git
+From the name "Project X" you get:
+  folder    ../project-x            (next to this template)
+  package   com.abzed.projectx
+  artifact  project-x               (also the database: project_x)
+  display   Project X
+  main      ProjectXApplication
 
-Options:
-  --package    Java base package (e.g. com.acme.portal). Prompted if omitted.
-  --group      Maven groupId. Defaults to the base package.
-  --artifact   Maven artifactId / slug. Defaults to the target directory name.
-  --name       Human-readable display name. Defaults from the artifact.
+Optional overrides:
+  --package    Java base package (e.g. com.acme.portal).
+  --dir        Where to create the project (default: ../<artifact>).
+  --artifact   Maven artifactId / slug (default: slug of the name).
+  --group      Maven groupId (default: the base package).
   --no-git     Do not run `git init` / initial commit in the new project.
   --force      Allow a non-empty target directory.
 
+A path-like first argument (e.g. ../acme-portal) is still accepted as the target
+directory, so the older `scaffold.py ../acme-portal --package com.acme.portal` works.
+
 The script copies the template it lives in (excluding build output, .git, IDE
-files, and itself), so just run it from this repo against a new directory.
+files, and itself).
 """
 
 import argparse
@@ -34,6 +41,9 @@ from pathlib import Path
 SOURCE_ROOT = Path(__file__).resolve().parent
 SCRIPT_NAME = Path(__file__).name
 
+# Default base package for new projects: <DEFAULT_ORG>.<name without dashes>.
+DEFAULT_ORG = "com.abzed"
+
 # Names never copied into the generated project.
 EXCLUDE_NAMES = {
     ".git", "target", ".idea", "node_modules", "HELP.md",
@@ -44,7 +54,7 @@ EXCLUDE_SUFFIXES = {".iml", ".class", ".jar"}
 # Only these files get their contents rewritten (token replacement).
 TEXT_SUFFIXES = {
     ".java", ".xml", ".yaml", ".yml", ".md", ".sql", ".properties",
-    ".gitattributes", ".dockerignore", ".example",
+    ".gitattributes", ".dockerignore", ".example", ".sh",
 }
 TEXT_NAMES = {"Dockerfile", "docker-compose.yml", ".gitlab-ci.yml", "ci.yml", ".env.example"}
 
@@ -136,6 +146,24 @@ def rewrite_contents(target, replacements, package, group):
             path.write_text(text, encoding="utf-8")
 
 
+TEMPLATE_ONLY_BLOCK = re.compile(
+    r"^<!-- template-only:start -->\n.*?^<!-- template-only:end -->\n(?:\n)?",
+    re.DOTALL | re.MULTILINE,
+)
+# Hidden in the template's docs; revealed (comment wrapper removed) in generated projects.
+PROJECT_ONLY_BLOCK = re.compile(r"^<!-- project-only\n(.*?)^-->\n", re.DOTALL | re.MULTILINE)
+
+
+def adapt_docs(target):
+    """Drop template-only docs (e.g. the scaffolder section) and reveal project-only text."""
+    for path in target.rglob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        adapted = TEMPLATE_ONLY_BLOCK.sub("", text)
+        adapted = PROJECT_ONLY_BLOCK.sub(r"\1", adapted)
+        if adapted != text:
+            path.write_text(adapted, encoding="utf-8")
+
+
 def rename_app_classes(target, app_class):
     for tests in (False, True):
         suffix = "ApplicationTests.java" if tests else "Application.java"
@@ -151,9 +179,9 @@ def seed_env(target):
         return
     text = example.read_text(encoding="utf-8")
     access = base64.b64encode(os.urandom(32)).decode()
-    refresh = base64.b64encode(os.urandom(32)).decode()
+    otp = base64.b64encode(os.urandom(36)).decode()
     text = text.replace("APP_JWT_ACCESS_SECRET=REPLACE_WITH_BASE64_SECRET", f"APP_JWT_ACCESS_SECRET={access}")
-    text = text.replace("APP_JWT_REFRESH_SECRET=REPLACE_WITH_BASE64_SECRET", f"APP_JWT_REFRESH_SECRET={refresh}")
+    text = text.replace("APP_OTP_SECRET=REPLACE_WITH_OTP_SECRET", f"APP_OTP_SECRET={otp}")
     (target / ".env").write_text(text, encoding="utf-8")
 
 
@@ -170,36 +198,58 @@ def git_init(target):
         return False
 
 
+def looks_like_path(value):
+    return any(sep in value for sep in ("/", "\\")) or value.startswith(".")
+
+
 def main():
-    parser = argparse.ArgumentParser(add_help=True, description="Scaffold a new project from this template.")
-    parser.add_argument("target", help="Target directory for the new project.")
-    parser.add_argument("--package", help="Java base package (e.g. com.acme.app).")
-    parser.add_argument("--group", help="Maven groupId (defaults to the base package).")
-    parser.add_argument("--artifact", help="Maven artifactId / slug (defaults to the directory name).")
-    parser.add_argument("--name", help="Display name (defaults from the artifact).")
+    parser = argparse.ArgumentParser(
+        add_help=True,
+        description='Scaffold a new project from this template, e.g. python scaffold.py "Project X".',
+    )
+    parser.add_argument("project", nargs="?", help='Project name, e.g. "Project X" or project-x.')
+    parser.add_argument("--name", help="Project name (same as the positional argument).")
+    parser.add_argument("--package", help=f"Java base package (default: {DEFAULT_ORG}.<name>).")
+    parser.add_argument("--dir", help="Target directory (default: ../<artifact>, next to the template).")
+    parser.add_argument("--artifact", help="Maven artifactId / slug (default: slug of the name).")
+    parser.add_argument("--group", help="Maven groupId (default: the base package).")
     parser.add_argument("--no-git", action="store_true", help="Skip git init.")
     parser.add_argument("--force", action="store_true", help="Allow a non-empty target directory.")
     args = parser.parse_args()
 
-    target = Path(args.target).resolve()
+    name = args.name
+    target_dir = args.dir
+    if args.project:
+        if looks_like_path(args.project) and not target_dir:
+            target_dir = args.project  # legacy form: scaffold.py ../acme-portal
+        elif not name:
+            name = args.project
+    if not name and not target_dir and not args.artifact:
+        try:
+            name = input("Project name: ").strip()
+        except EOFError:
+            name = ""
+        if not name:
+            fail('give the project a name, e.g. python scaffold.py "Project X"')
+
+    artifact = slugify(args.artifact or name or Path(target_dir).name)
+    if not artifact:
+        fail("could not derive a valid project name; use letters/digits, e.g. \"Project X\"")
+    if not artifact[0].isalpha():
+        fail(f"project name must start with a letter (got '{artifact}')")
+
+    target = Path(target_dir).resolve() if target_dir else (SOURCE_ROOT.parent / artifact)
     if target == SOURCE_ROOT:
         fail("target must be a different directory from the template")
     if target.exists() and any(target.iterdir()) and not args.force:
         fail(f"target '{target}' exists and is not empty (use --force to override)")
 
-    artifact = slugify(args.artifact or target.name)
-    if not artifact:
-        fail("could not derive a valid artifact name; pass --artifact")
-
-    package = args.package
-    if not package:
-        if sys.stdin.isatty():
-            package = input(f"Java base package [com.example.{artifact.replace('-', '')}]: ").strip()
-        package = package or f"com.example.{artifact.replace('-', '')}"
+    package = args.package or f"{DEFAULT_ORG}.{artifact.replace('-', '')}"
     validate_package(package)
 
     group = args.group or package
-    display_name = args.name or titleize(artifact)
+    # Keep a name the user typed with spaces/capitals as-is; otherwise title-case the slug.
+    display_name = name if name and name != slugify(name) else titleize(artifact)
     app_class = pascal_case(artifact)
     if not app_class or not app_class[0].isalpha():
         fail(f"could not derive a valid main-class name from '{artifact}'")
@@ -229,6 +279,7 @@ def main():
 
     replacements = build_replacements(package, group, artifact, db_name, app_class, display_name)
     rewrite_contents(target, replacements, package, group)
+    adapt_docs(target)
     rename_app_classes(target, app_class)
     seed_env(target)
 
@@ -240,8 +291,8 @@ def main():
     print(f"  cd {target}")
     print("  docker compose up -d postgres mailpit   # start dependencies")
     print("  ./mvnw verify                            # build + test")
-    print("  ./mvnw spring-boot:run                   # run")
-    print("\nA .env with freshly generated JWT secrets was created (gitignored).")
+    print("  ./scripts/dev-run.sh                     # run (loads .env, hot reload)")
+    print("\nA .env with freshly generated JWT + OTP secrets was created (gitignored).")
     if not args.no_git and not committed:
         print("Note: git was not initialized (git not found or commit failed).")
 

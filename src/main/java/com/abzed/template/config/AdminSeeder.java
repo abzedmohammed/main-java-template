@@ -4,6 +4,7 @@ import com.abzed.template.user.AuthProvider;
 import com.abzed.template.user.User;
 import com.abzed.template.user.UserRepository;
 import com.abzed.template.user.UserRole;
+import com.abzed.template.user.UserStatus;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,15 +40,15 @@ public class AdminSeeder implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        userRepository.findByEmail(adminEmail).ifPresentOrElse(
+        userRepository.findByUsrEmail(adminEmail).ifPresentOrElse(
                 this::promoteIfNeeded,
                 this::createIfPossible
         );
     }
 
     private void promoteIfNeeded(User user) {
-        if (user.getRole() != UserRole.ADMIN) {
-            user.setRole(UserRole.ADMIN);
+        if (user.getUsrRole() != UserRole.ADMIN) {
+            user.setUsrRole(UserRole.ADMIN);
             userRepository.save(user);
             log.info("Promoted existing user to ADMIN: {}", adminEmail);
         }
@@ -59,12 +60,13 @@ public class AdminSeeder implements ApplicationRunner {
             return;
         }
         User admin = new User();
-        admin.setFullName("Administrator");
-        admin.setEmail(adminEmail);
-        admin.setPasswordHash(passwordEncoder.encode(adminPassword));
-        admin.setRole(UserRole.ADMIN);
-        admin.setProvider(AuthProvider.LOCAL);
-        admin.setEmailVerified(true);
+        admin.setUsrFullName("Administrator");
+        admin.setUsrEmail(adminEmail);
+        admin.setUsrPasswordHash(passwordEncoder.encode(adminPassword));
+        admin.setUsrRole(UserRole.ADMIN);
+        admin.setUsrProvider(AuthProvider.LOCAL);
+        admin.setUsrEmailVerified(true);
+        admin.setUsrStatus(UserStatus.ACTIVE);
         userRepository.save(admin);
         log.info("Created ADMIN user: {}", adminEmail);
     }

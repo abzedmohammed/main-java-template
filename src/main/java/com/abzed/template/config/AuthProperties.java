@@ -9,28 +9,33 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.auth")
 public class AuthProperties {
 
-    private Cookie cookie = new Cookie();
     private Jwt jwt = new Jwt();
+    private Otp otp = new Otp();
+    private Login login = new Login();
     private Social social = new Social();
-
-    @Getter
-    @Setter
-    public static class Cookie {
-        private String accessName = "accessToken";
-        private String refreshName = "refreshToken";
-        private String sameSite = "Lax";
-        private String path = "/";
-        private boolean secure = false;
-        private boolean httpOnly = true;
-    }
 
     @Getter
     @Setter
     public static class Jwt {
         private String accessSecret = "replace-with-base64-secret";
-        private String refreshSecret = "replace-with-base64-secret";
         private long accessMinutes = 15;
-        private long refreshDays = 7;
+    }
+
+    /** Pre-auth one-time passwords. {@code ttlMinutes} is also returned to the client as {@code otpTimer}. */
+    @Getter
+    @Setter
+    public static class Otp {
+        private long ttlMinutes = 5;
+        private int maxAttempts = 5;
+        /** Server-side HMAC key for hashing OTPs (at least 32 chars). Required at startup. */
+        private String secret = "";
+    }
+
+    @Getter
+    @Setter
+    public static class Login {
+        private int maxAttempts = 5;
+        private long lockMinutes = 15;
     }
 
     @Getter
